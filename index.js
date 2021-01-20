@@ -2,24 +2,40 @@ const express = require("express");
 const app = express();
 const fs = require("fs");
 const HandleBars = require("handlebars");
-
+const jwt = require("jsonwebtoken");
 const { getAdPath } = require("./utils/get-ad-path");
 
-app.get("/:age/:gender", async (req, res) => {
-  fs.readFile("./video.html", async (error, data) => {
-    if (error) {
-      return res.status(500).send("Internel Server error occured");
+app.get("/:age/:gender/:jwt", async (req, res) => {
+  try {
+    let decoded = jwt.verify(req.params.jwt, process.env.SECRET_KEY);
+
+    if (decoded.secretNumber == process.env.SECRET_NUMBER) {
+
+      fs.readFile("./video.html", async (error, data) => {
+
+        if (error) {
+          return res.status(500).send("Internel Server error occured");
+        }
+        let html = data.toString();
+        let adPath = await getAdPath(req.params.age, req.params.gender);
+        adPath = adPath.split("/").join("slash");
+
+        let template = HandleBars.compile(html);
+
+        let finalHtml = template({ filePath: adPath });
+        res.send(finalHtml);
+
+      });
+
+    } else {
+      return res.status(401).send("Unauthorized");
     }
-    let html = data.toString();
-    let adPath = await getAdPath(req.params.age, req.params.gender);
-    adPath = adPath.split("/").join("slash");
 
-    let template = HandleBars.compile(html);
+  } catch (error) {
 
-    let finalHtml = template({ filePath: adPath });
-    res.send(finalHtml);
-  });
-  //   res.send((req.params.age, req.params.gender));
+    return res.status(500).send("Internal Server error occured");
+  }
+
 });
 
 app.get("/:filePath", function (req, res) {
